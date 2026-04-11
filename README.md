@@ -1,8 +1,3 @@
-# Planetary-Stability-and-Habitability-in-Hierarchical-Triple-Star-Systems
+This repository provides a research-oriented Python framework designed to study the intersection between orbital stability and radiative habitability in hierarchical triple star systems hosting circumbinary planets. The code combines N-body integrations performed with REBOUND with simplified equilibrium-temperature mapping to explore the conditions under which long-term dynamical stability and potentially habitable thermal environments may coexist.
 
-This repository contains a research-oriented Python framework developed to study
-the overlap between orbital stability and radiative habitability in hierarchical
-triple star systems hosting circumbinary planets. The code combines N-body
-integrations performed with REBOUND and simplified equilibrium-temperature
-mapping to identify regions where long-term dynamical survival and potentially
-temperate irradiation conditions may coexist.
+This project is developed by Loïc Converset and Elie Desmartin within the ExTReM thematic program of the Graduate School at Université Grenoble Alpes (UGA). The work is carried out at the Institut de Planétologie et d’Astrophysique de Grenoble (IPAG), as part of the Odyssey team and the Stellar-MADE project, under the supervision of Mario Sucerquia, Romain Grane, and Nicolás Cuello.
