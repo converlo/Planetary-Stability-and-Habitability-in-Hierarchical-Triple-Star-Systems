@@ -1,5 +1,8 @@
 # Planetary-Stability-and-Habitability-in-Hierarchical-Triple-Star-Systems
 
-This Research Training report describes a study on planetary stability and habitability within hierarchical triple star systems. The project was carried out at the Institut de Planétologie et d’Astrophysique de Grenoble (IPAG), as part of the Odyssey team and the Stellar-MADE project. Under the supervision of Mario Sucerquia, Romain Grane and Nicolás Cuello, the work combines an extensive literature review with numerical investigations.
-
-The study aims to evaluate the survival conditions of exoplanets in complex stellar environments, distinguishing between circumstellar (S-type) and circumbinary (P-type) configurations. Grounded in the fundamental principles of the N-body problem and orbital resonances, a numerical exploration based on the REBOUND integrator will be conducted in the next stage of the project. The objective is to map stable regions by varying key parameters such as semi-major axes, eccentricities, and mass ratios, while modeling the total stellar flux received by the planet. This report establishes the theoretical foundations required to understand the impact of stellar multiplicity on the dynamical and thermal environment of potential exoplanetary systems.
+This repository contains a research-oriented Python framework developed to study
+the overlap between orbital stability and radiative habitability in hierarchical
+triple star systems hosting circumbinary planets. The code combines N-body
+integrations performed with REBOUND and simplified equilibrium-temperature
+mapping to identify regions where long-term dynamical survival and potentially
+temperate irradiation conditions may coexist.
