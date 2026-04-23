@@ -16,21 +16,17 @@ The framework allows the user to:
 - compute equilibrium temperature maps from the combined flux of three stars,
 - visualize the overlap between stability zones (SZ) and habitable zones (HZ).
 
-## Repository contents
-
-- `main.py` — main simulation and visualization script
-- `Result_example.mp4` — example output animation
-- `bibliographic_review.pdf` — bibliographic review and scientific context
-- `LICENSE` — BSD 3-Clause license
 
 ## Requirements
 
 The code requires Python 3 and the following packages:
 - `rebound`
 - `numpy`
+- `random`
+- `os`
 - `matplotlib`
 
 You can install the main dependencies with:
 
 ```bash
-pip install rebound numpy matplotlib
+pip install rebound numpy matplotlib os random
