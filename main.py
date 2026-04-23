@@ -34,13 +34,14 @@ REBOUND may be poorly defined for perturbed circumbinary trajectories.
 The present implementation is intended for research-oriented numerical
 experiments and figure production for studies of exoplanet stability 
 and habitability in multiple-star environments.
-"""
+"""    
 
 import rebound
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as anim
 import random as rd
+import os
 
 def simulation(parameters, phase, a_p, integrator = "whfast"):
     """
@@ -451,10 +452,11 @@ def stability_zone(parameters, a_p_range, integrator="whfast", N=30, n=10000, r=
 
     for a_p in a_p_list:
         # Estimate the stability fraction for the current planetary orbit
+        print(f"a_p = {a_p}")
         p = stability_fraction(parameters=parameters, a_p=a_p, 
                                integrator=integrator, N=N, n=n, r=r)
         results.append((a_p, p))
-        print(f"a_p = {a_p}")
+        
         
     # Return the stability scan as a two-column array
     return np.array(results)
@@ -491,7 +493,7 @@ def stability_zone_boundary(results, q=0.9):
     p = results[:, 1]
 
     # Keep only the semi-major axes that satisfy the stability threshold
-    stable_a_p = results[p > q, 0]
+    stable_a_p = results[p >= q, 0]
 
     if len(stable_a_p) == 0:
         print("no stable planet")
@@ -516,7 +518,7 @@ def stability_zone_boundary(results, q=0.9):
     return zones
 
 
-def stability_plot_bar(parameters, results, q=0.9):
+def stability_plot_bar(parameters, results, filename, q=0.9):
     """
     Plot the stability fraction as a bar diagram and highlight stable regions.
 
@@ -576,6 +578,10 @@ def stability_plot_bar(parameters, results, q=0.9):
     ax.set_ylim(0, 1)
 
     ax.grid(True)
+    
+    plt.savefig(filename, dpi=300, bbox_inches='tight')
+    
+    plt.close(fig)
 
     return fig, ax
 
@@ -616,7 +622,7 @@ def luminosity(m):
     return L
 
 
-def temperature(parameters, positions, xlim, ylim, R=50, A=0.3, greenhouse_factor=0.61):
+def temperature(parameters, positions, xlim, ylim, R=50, A=0.3, greenhouse_factor=288/255):
     """
     Compute equilibrium temperature maps from the combined stellar irradiation.
 
@@ -689,7 +695,7 @@ def temperature(parameters, positions, xlim, ylim, R=50, A=0.3, greenhouse_facto
         d_C = np.sqrt((X - x_C)**2 + (Y - y_C)**2 + eps)
 
         # Equilibrium temperature from the summed stellar irradiation
-        T_eq = ((1 - A) / (16 * np.pi * SIGMA * greenhouse_factor) *
+        T_eq = greenhouse_factor * ((1 - A) / (16 * np.pi * SIGMA) *
                 (L_A/(d_A*AU)**2 +
                  L_B/(d_B*AU)**2 +
                  L_C/(d_C*AU)**2)
@@ -700,7 +706,7 @@ def temperature(parameters, positions, xlim, ylim, R=50, A=0.3, greenhouse_facto
     return X, Y, T
 
 
-def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, integrator="whfast", i_anim=100, n_anim=3, i_hab=1000, n_hab=100,  save=False, filename="animation.gif"):
+def animation(parameters, phase, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, integrator="whfast", i_anim=100, n_anim=3, i_hab=1000, n_hab=100,  save=False, filename="animation.gif"):
     """
     Animate the orbital motion, stability zone, and habitable zone structure.
 
@@ -767,9 +773,6 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
     # Planet-dependent radiative parameters
     A = planet_profiles[planet_type]["A"]
     greenhouse_factor = planet_profiles[planet_type]["greenhouse_factor"]
-    
-    # Use a single phase realization for both HZ computation and animation
-    phase = random_phase()
 
     # Long integration used to define the habitable zone
     pos_hz = positions(parameters, phase, a_p, integrator=integrator,
@@ -781,41 +784,13 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
                          i_max=i_anim, n_orbits=n_anim)
     _, _, T_anim = temperature(parameters, pos_anim, xlim, ylim, R, A, greenhouse_factor)
 
-    fig = plt.figure(figsize=(12, 8))
+    fig = plt.figure(figsize=(22, 10))
     gs = fig.add_gridspec(1, 2, width_ratios=[4, 1.8], wspace=0.15)
 
     ax = fig.add_subplot(gs[0, 0])
     ax_info = fig.add_subplot(gs[0, 1])
     ax_info.axis("off")
-    
-    # Summary of the system parameters shown in the side panel
-    param_text = (
-    f"Binary\n"
-    f"mass m_A = {parameters['binary']['m_A']} solar mass\n"
-    f"mass m_B = {parameters['binary']['m_B']} solar mass\n"
-    f"semi-major axis a_AB = {parameters['binary']['a_AB']} AU\n"
-    f"eccentricity e_AB = {parameters['binary']['e_AB']}\n\n"
-    f"Companion\n"
-    f"mass m_C = {parameters['companion']['m_C']} solar mass\n"
-    f"semi-major axis a_C = {parameters['companion']['a_C']} AU\n"
-    f"e_C = {parameters['companion']['e_C']}\n\n"
-    f"Planet\n"
-    f"Planet type = {planet_type}\n"
-    f"mass m_p = {parameters['planet']['m_p']} solar mass\n"
-    f"semi-major axis a_p = {a_p} AU\n"
-    f"eccentricity e_p = {parameters['planet']['e_p']}\n"
-    f"albedo A = {A:.2f}\n"
-    f"green house effect factor greenhouse_factor = {greenhouse_factor:.2f}\n"
-    )
 
-    ax_info.text(
-    0.02, 0.98, param_text,
-    transform=ax_info.transAxes,
-    va="top",
-    ha="left",
-    fontsize=11,
-    bbox=dict(facecolor="white", alpha=0.85, edgecolor="black")
-    )
 
     # Initial temperature map
     im = ax.imshow(
@@ -823,7 +798,7 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
         extent=(xlim[0], xlim[1], ylim[0], ylim[1]),
         origin='lower',
         cmap='inferno',
-        vmin=0, vmax=1500,
+        vmin=0, vmax=1300,
         animated=True
     )
     plt.colorbar(im, ax=ax, label="Equilibrium temperature (K)")
@@ -836,6 +811,8 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
 
     # Draw the precomputed stability-zone boundaries
     theta = np.linspace(0, 2*np.pi, 400)
+    ax.plot([], [], color='green', alpha=0.8, lw=1.5, label="SZ boundaries")
+
 
     for a_min, a_max in sz_boundary:
         x_inner = a_min * np.cos(theta)
@@ -843,8 +820,8 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
         x_outer = a_max * np.cos(theta)
         y_outer = a_max * np.sin(theta)
 
-        ax.plot(x_inner, y_inner, color='black', alpha=0.5, lw=1.5, zorder=3)
-        ax.plot(x_outer, y_outer, color='black', alpha=0.5, lw=1.5, zorder=3)
+        ax.plot(x_inner, y_inner, color='green', alpha=0.5, lw=1.5, zorder=3)
+        ax.plot(x_outer, y_outer, color='green', alpha=0.5, lw=1.5, zorder=3)
 
     # Short orbital trails used for visual clarity
     trail_A, = ax.plot([], [], color='white', alpha=0.8, lw=0.8)
@@ -857,17 +834,51 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
         T_min = np.min(T_hz, axis=0)
         T_max = np.max(T_hz, axis=0)
         zone = (T_min > 273) & (T_max < 373)
-        print("Number of points in HZ :", np.sum(zone))
+        somme = np.sum(zone)
+        print("Number of points in {HZ} :", somme)
     elif HZ == 'AHZ':
         T_mean = np.mean(T_hz, axis=0)
         zone = (T_mean > 273) & (T_mean < 373)
-        print("Number of points in HZ :", np.sum(zone))
+        somme = np.sum(zone)
+        print("Number of points in {HZ} :", somme)
     elif HZ == 'EHZ':
         zone = np.any((T_hz > 273) & (T_hz < 373), axis=0)
-        print("Number of points in HZ :", np.sum(zone))
+        somme = np.sum(zone)
+        print("Number of points in {HZ} :", somme)
     else:
         raise ValueError("HZ doit valoir 'PHZ' ou 'AHZ' ou 'EHZ'")
 
+    # Summary of the system parameters shown in the side panel
+    param_text = (
+        f"Binary\n"
+        f"mass m_A = {parameters['binary']['m_A']} solar mass\n"
+        f"mass m_B = {parameters['binary']['m_B']} solar mass\n"
+        f"semi-major axis a_AB = {parameters['binary']['a_AB']} AU\n"
+        f"eccentricity e_AB = {parameters['binary']['e_AB']}\n\n"
+        f"Companion\n"
+        f"mass m_C = {parameters['companion']['m_C']} solar mass\n"
+        f"semi-major axis a_C = {parameters['companion']['a_C']} AU\n"
+        f"e_C = {parameters['companion']['e_C']}\n\n"
+        f"Planet\n"
+        f"Planet type = {planet_type}\n"
+        f"mass m_p = {parameters['planet']['m_p']} solar mass\n"
+        f"semi-major axis a_p = {a_p} AU\n"
+        f"eccentricity e_p = {parameters['planet']['e_p']}\n"
+        f"albedo A = {A:.2f}\n"
+        f"green house effect factor = {greenhouse_factor:.2f}\n"
+        f"stability boundary = {sz_boundary}"
+        f"number of points in {HZ} = {somme})"
+    )
+    
+    ax_info.text(
+    0.02, 0.98, param_text,
+    transform=ax_info.transAxes,
+    va="top",
+    ha="left",
+    fontsize=11,
+    bbox=dict(facecolor="white", alpha=0.85, edgecolor="black")
+    )
+    
     # Overlay the habitable zone on the temperature map
     ax.contourf(
         X, Y, zone.astype(float),
@@ -877,18 +888,20 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
         zorder=2
     )
 
+    ax.fill_between([], [], color='deepskyblue', alpha=0.4, label=f"{HZ} Region")
     ax.set_xlim(xlim)
     ax.set_ylim(ylim)
     ax.set_xlabel("x (AU)")
     ax.set_ylabel("y (AU)")
     ax.set_aspect('equal')
-    ax.legend()
+    ax.legend(loc='upper right', framealpha=0.85, fontsize=9)
     
 
     def update(frame):
+        print(f"{frame}/{i_anim}")
         # Update the temperature map
         im.set_data(T_anim[frame])
-
+        
         # Update body positions
         star_A.set_data([pos_anim[frame, 0, 0]], [pos_anim[frame, 0, 1]])
         star_B.set_data([pos_anim[frame, 1, 0]], [pos_anim[frame, 1, 1]])
@@ -919,87 +932,189 @@ def animation(parameters, a_p, xlim, ylim, R, sz_boundary, HZ, planet_type, inte
     if save:
         ani.save(filename, writer="pillow", fps=20)
     
-    plt.show()
+    plt.close(fig)
     
     return ani
 
-# Reference planetary profiles used for the radiative equilibrium model.
+def plot_planet_temperature(parameters, phase, a_p, planet_type, integrator="whfast", i_max=1000, n_orbits=10, save=False, filename="planet_temperature.png"):
+    """
+    Compute and plot the equilibrium temperature of the planet along its orbit as a function of time.
+    """
+    # 1. RÈcupÈration des paramËtres
+    A = planet_profiles[planet_type]["A"]
+    greenhouse_factor = planet_profiles[planet_type]["greenhouse_factor"]
+    
+    m_A = parameters["binary"]["m_A"]
+    m_B = parameters["binary"]["m_B"]
+    m_C = parameters["companion"]["m_C"]
+    
+    # 2. Lancement de la simulation pour rÈcupÈrer les positions
+    pos = positions(parameters, phase, a_p, integrator=integrator, i_max=i_max, n_orbits=n_orbits)
+    
+    # 3. RecrÈation de l'axe des temps (en annÈes)
+    P_p = np.sqrt(a_p**3 / (m_A + m_B))
+    times = np.linspace(0, n_orbits * P_p, i_max)
+    
+    # Extraction des trajectoires de chaque corps
+    pos_A = pos[:, 0, :]
+    pos_B = pos[:, 1, :]
+    pos_C = pos[:, 2, :]
+    pos_p = pos[:, 3, :]
+    
+    # 4. Calcul des distances (utilisation de Numpy pour vectoriser le calcul)
+    eps = 1e-12
+    d_A = np.sqrt(np.sum((pos_p - pos_A)**2, axis=1)) + eps
+    d_B = np.sqrt(np.sum((pos_p - pos_B)**2, axis=1)) + eps
+    d_C = np.sqrt(np.sum((pos_p - pos_C)**2, axis=1)) + eps
+    
+    # 5. Calcul des luminositÈs
+    L_A = luminosity(m_A)
+    L_B = luminosity(m_B)
+    L_C = luminosity(m_C)
+    
+    SIGMA = 5.670374419e-8
+    AU = 1.495978707e11
+    
+    # 6. Calcul de la tempÈrature d'Èquilibre au cours du temps
+    T_eq = greenhouse_factor * ((1 - A) / (16 * np.pi * SIGMA) * (L_A/(d_A*AU)**2 + L_B/(d_B*AU)**2 + L_C/(d_C*AU)**2))**(1/4)
+    
+    # 7. CrÈation du graphique
+    fig, ax = plt.subplots(figsize=(10, 5))
+    
+    # TracÈ de la tempÈrature
+    ax.plot(times, T_eq, color='k', lw=1.5, label=f"Planet Temperature (a_p={a_p:.2f} AU)")
+    
+    # Ajout des limites de la Zone Habitable (Eau liquide)
+    #ax.axhline(273.15, color='blue', linestyle='--', label="Freezing point (273.15 K)")
+    #ax.axhline(373.15, color='red', linestyle='--', label="Boiling point (373.15 K)")
+    
+    # Coloration de la zone d'eau liquide en vert transparent
+    ax.axhspan(273.15, 373.15, color='deepskyblue', alpha=0.2, label="Habitable Zone (Liquid Water)")
+    
+    # Formatage
+    ax.set_xlabel("Time (years)")
+    ax.set_ylabel("Surface Temperature (K)")
+    ax.set_title("Thermal Evolution of the Planet")
+    ax.legend()
+    ax.grid(True, alpha=0.4)
+    
+    if save:
+        plt.savefig(filename, dpi=300, bbox_inches='tight')
+        
+    plt.close(fig)
+    
+    return times, T_eq
+
+
 planet_profiles = {
-    "earth": {"A": 0.30, "greenhouse_factor": 0.61, "m_p": 1e-3},
-    "venus": {"A": 0.75, "greenhouse_factor": 0.02, "m_p": 0.8e-3},
-    "super earth": {"A": 0.30, "greenhouse_factor": 0.61, "m_p": 5e-3}
+        "earth": {"A": 0.30, "greenhouse_factor": 288/255, "m_p": 1e-3},
+        "venus": {"A": 0.75, "greenhouse_factor": 737/231, "m_p": 0.8e-3},
+        "super earth": {"A": 0.30, "greenhouse_factor": 288/255, "m_p": 5e-3},
+        "perso": {"A": 0, "greenhouse_factor": 5, "m_p": 1e-2}
 }
 
-planet_type = "earth"
 
-# Example system used for validation and exploratory tests.
-parameters_test = {
-    "binary": {"m_A": 2.0, "m_B": 1.5, "a_AB": 0.2, "e_AB": 0},
-    "companion": {"m_C": 0.2, "a_C": 7.0, "e_C": 0.1, "inc_C": 0},
-    "planet": {"m_p": planet_profiles[planet_type]["m_p"], "e_p": 0, "inc_p": np.pi}
-}
+def run(m_C, e_C):
+    
+    planet_type = "earth"
 
-# Approximate orbital configuration inspired by HD 188753.
-# The system is treated here in a simplified coplanar configuration and null companion's eccentricity
-HD188753 = {
-    "binary": {"m_A": 0.86, "m_B": 0.66, "a_AB": 0.648, "e_AB": 0.175},
-    "companion": {"m_C": 0.99, "a_C": 12.3, "e_C": 0.1, "inc_C": 0},
-    "planet": {"m_p": planet_profiles[planet_type]["m_p"], "e_p": 0, "inc_p": 0}
-}
+    base_config = {
+        "binary": {"m_A": 2, "m_B": 1, "a_AB": 0.1, "e_AB": 0},
+        "companion": {"m_C": m_C, "a_C": 15, "e_C": e_C, "inc_C": 0},
+        "planet": {"m_p": planet_profiles[planet_type]["m_p"], "e_p": 0, "inc_p": 0}
+    }
+    
+    phase = random_phase()
 
-# SZ and HZ parameters
-integrator = "whfast"
-n_stab = 5000
-n_hab = 1000
-i_hab = 5000
-r = 5
-N = 30
-k = 50
-q = 0.9
-HZ = 'PHZ'
+    integrator = "whfast"
+    n_stab = 500
+    n_hab = 100
+    i_hab = 1000
+    r = 5
+    N = 15
+    k = 30
+    q = 0.9
+    HZ = "PHZ"
 
-# Range of semi-major axis used for the calculation of the SZ
-a_p_range = [HD188753["binary"]["a_AB"], HD188753["companion"]["a_C"]]
+    #a_p_range = [base_config["binary"]["a_AB"], 9]
+    a_p_range = [0.5, 9]
 
-# Calculation of the SZ boundary
-sz_boundary = stability_zone_boundary(
-    stability_zone(
-        HD188753,
+
+    results = stability_zone(
+        base_config,
         a_p_range=a_p_range,
         integrator=integrator,
         N=N,
         n=n_stab,
         r=r,
         k=k
-    ),
-    q=q
-)
+    )
+    
+    os.makedirs("outputs", exist_ok=True)
+    
+    filename_ani = f"outputs/ani_eC_{e_C:.2f}_mC_{m_C:.2f}.gif"
+    filename_sz = f"outputs/sz_eC_{e_C:.2f}_mC_{m_C:.2f}.png"
+    filename_t = f"outputs/t1_eC_{e_C:.2f}_mC_{m_C:.2f}.png"
 
-# Animation parameters
-a_min, a_max = sz_boundary[0]
-a_p = rd.uniform(a_min, a_max)
-l = 40 # size of the map
-xlim = (-l/2, l/2)
-ylim = (-l/2, l/2)
-i_anim = 500
-n_anim = 10 
-R = 1000
+    sz_plot = stability_plot_bar(parameters=base_config, results=results, filename=filename_sz, q=q)
 
-# Create an animation
-ani = animation(
-    parameters=HD188753,
-    a_p=a_p,
-    xlim=xlim,
-    ylim=ylim,
-    R=R,
-    sz_boundary=sz_boundary,
-    planet_type=planet_type,
-    HZ=HZ,
-    integrator=integrator,
-    i_anim=i_anim,
-    n_anim=n_anim,
-    i_hab=i_hab,
-    n_hab=n_hab,
+    sz_boundary = stability_zone_boundary(results=results, q=q)
+
+    if not sz_boundary:
+        print(f"Aucune zone stable pour m_C={m_C}, e_C={e_C}")
+        return None
+
+    a_min, a_max = sz_boundary[0]
+    a_p = 3.3
+
+    l = 35
+    xlim = (-l/2, l/2)
+    ylim = (-l/2, l/2)
+    i_anim = 400
+    n_anim = 20
+    R = 300 
+    
+
+    ani = animation(
+        parameters=base_config,
+        phase=phase,
+        a_p=a_p,
+        xlim=xlim,
+        ylim=ylim,
+        R=R,
+        sz_boundary=sz_boundary,
+        planet_type=planet_type,
+        HZ=HZ,
+        integrator=integrator,
+        i_anim=i_anim,
+        n_anim=n_anim,
+        i_hab=i_hab,
+        n_hab=n_hab,
+        save=True,
+        filename=filename_ani
+    )
+
+    times, T_planet = plot_planet_temperature(
+    parameters=base_config, 
+    phase=phase, 
+    a_p=a_p, 
+    planet_type=planet_type, 
+    integrator=integrator, 
+    i_max=2000,    # Haute resolution pour une belle courbe
+    n_orbits=10000,   # Sur 10 orbites pour voir l'effet des saisons/Ètoiles
     save=True,
-    filename="hz_sz_animation.gif"
-)
+    filename=filename_t
+    )
+    
+
+    return times, T_planet, sz_plot, ani
+
+
+m_C=0.5
+e_C=0.2
+run(0.5, 0.2)
+
+
+
+
+
